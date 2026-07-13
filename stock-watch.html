@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stock Watch</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --text: #222222;
+      --muted: #777777;
+      --line: #dddddd;
+      --soft: #f5f5f5;
+      --accent: #555555;
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 360px;
+      background: #f7f7f7;
+      color: var(--text);
+    }
+
+    .app {
+      width: min(100vw, 960px);
+      min-height: 100vh;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+      border-left: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 10px 7px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button, select, input {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      height: 28px;
+      border-radius: 4px;
+      padding: 0 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    button:hover { background: var(--soft); }
+    button.primary {
+      border-color: #cfcfcf;
+      background: var(--soft);
+      color: var(--text);
+    }
+
+    .icon-btn {
+      width: 28px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
+      font-weight: 700;
+    }
+
+    .status {
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      background: #bbbbbb;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .dot.live,
+    .dot.error { background: #777777; }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .metric {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .metric span {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .metric strong {
+      display: inline-block;
+      flex: 1 1 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1.2fr .9fr .9fr auto auto;
+      gap: 6px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--soft);
+    }
+
+    .watch-form {
+      grid-template-columns: 1fr auto;
+    }
+
+    input, select {
+      width: 100%;
+      min-width: 0;
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--text);
+      padding: 0 9px;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, .06);
+    }
+
+    .list {
+      flex: 1;
+      overflow: auto;
+      background: var(--panel);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td {
+      padding: 6px 7px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+      font-size: 12px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--soft);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    th:first-child, td:first-child { text-align: left; }
+    th:nth-child(1) { width: 34%; }
+    th:nth-child(2) { width: 20%; }
+    th:nth-child(3) { width: 22%; }
+    th:nth-child(4) { width: 24%; }
+
+    .watch-table th:nth-child(1) { width: 50%; }
+    .watch-table th:nth-child(2) { width: 25%; }
+    .watch-table th:nth-child(3) { width: 25%; }
+
+    td {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .name {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .name strong, .name span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .name span {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .up, .down, .flat, .danger { color: var(--text); }
+
+    [hidden] { display: none !important; }
+
+    .menu {
+      position: fixed;
+      z-index: 20;
+      min-width: 112px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #ffffff;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+    }
+
+    .menu button {
+      display: block;
+      width: 100%;
+      border: 0;
+      text-align: left;
+      background: transparent;
+    }
+
+    .menu button:hover {
+      background: var(--soft);
+    }
+
+    .empty {
+      padding: 34px 22px;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 13px;
+    }
+
+    .section-title {
+      padding: 10px 10px 6px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .foot {
+      padding: 6px 10px 8px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+      border-top: 1px solid var(--line);
+      background: var(--soft);
+    }
+
+    @media (max-width: 420px) {
+      body { min-width: 320px; }
+      .app {
+        border-left: 0;
+        border-right: 0;
+      }
+      .toolbar {
+        grid-template-columns: 1fr 1fr auto auto;
+      }
+      .watch-form {
+        grid-template-columns: 1fr auto;
+      }
+      .toolbar input:nth-child(3) {
+        grid-column: 1 / 3;
+      }
+      .summary {
+        grid-template-columns: 1fr 1fr;
+      }
+      th, td {
+        padding-left: 6px;
+        padding-right: 6px;
+        font-size: 12px;
+      }
+    }
+
+    @media (min-width: 720px) {
+      header {
+        padding: 10px 16px 8px;
+      }
+
+      .summary {
+        padding: 12px 16px;
+      }
+
+      .metric span {
+        font-size: 12px;
+      }
+
+      .metric strong {
+        font-size: 15px;
+      }
+
+      .toolbar {
+        grid-template-columns: 1.5fr 1fr 1fr auto auto;
+        padding: 10px 16px;
+      }
+
+      .watch-form {
+        grid-template-columns: 1fr auto;
+      }
+
+      th, td {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+
+      th {
+        font-size: 12px;
+      }
+
+      .name span {
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="topbar">
+        <div class="actions">
+          <select id="interval" title="Refresh interval">
+            <option value="5000" selected>5s</option>
+            <option value="10000">10s</option>
+            <option value="30000">30s</option>
+            <option value="60000">1m</option>
+          </select>
+          <button id="refresh" class="icon-btn" title="Refresh now" aria-label="Refresh now">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+              <path d="M20 6v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M4 18v-5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M18.5 9A7 7 0 0 0 6.3 6.5L4 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M5.5 15A7 7 0 0 0 17.7 17.5L20 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+          <button id="popout" title="Open mini window">Mini</button>
+        </div>
+      </div>
+      <div class="status">
+        <span><i id="dot" class="dot"></i><span id="statusText">Ready</span></span>
+        <span id="clock">--:--:--</span>
+      </div>
+    </header>
+
+    <section class="summary">
+      <div class="metric">
+        <span>Market Value</span>
+        <strong id="totalValue">--</strong>
+      </div>
+      <div class="metric">
+        <span>P/L</span>
+        <strong id="totalProfit">--</strong>
+      </div>
+    </section>
+
+    <form id="addForm" class="toolbar">
+      <input id="symbol" placeholder="Symbol: 600519 / 00700 / AAPL" autocomplete="off">
+      <input id="shares" placeholder="Shares" inputmode="decimal">
+      <input id="cost" placeholder="Cost" inputmode="decimal">
+      <button id="submitHolding" class="primary" type="submit">Add</button>
+      <button id="cancelEdit" type="button" hidden>Cancel</button>
+    </form>
+
+    <main class="list">
+      <table>
+        <thead>
+          <tr>
+            <th>Stock</th>
+            <th>Price</th>
+            <th>Change</th>
+            <th>P/L</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty" class="empty" hidden>
+        Add your symbols, shares, and cost basis first.<br>
+        A-shares: 600519 / sh600519 / sz000001. HK: 00700. US: AAPL.
+      </div>
+
+      <div class="section-title">Watchlist</div>
+      <form id="watchForm" class="toolbar watch-form">
+        <input id="watchSymbol" placeholder="Symbol to watch" autocomplete="off">
+        <button class="primary" type="submit">Add</button>
+      </form>
+      <table class="watch-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Today %</th>
+          </tr>
+        </thead>
+        <tbody id="watchRows"></tbody>
+      </table>
+      <div id="watchEmpty" class="empty" hidden>
+        Add symbols you want to watch without holding.
+      </div>
+    </main>
+
+    <div class="foot">
+      Quotes come from a public source and may be delayed. Figures are for reference only.
+    </div>
+  </div>
+
+  <div id="contextMenu" class="menu" hidden>
+    <button type="button" data-menu-action="edit">Edit</button>
+    <button type="button" data-menu-action="remove">Remove</button>
+  </div>
+
+  <script>
+    const storageKey = "mini-stock-holdings-v1";
+    const watchStorageKey = "mini-stock-watchlist-v1";
+    const seedStorageKey = "mini-stock-watch-seeded-v1";
+    const isLocalApp = location.protocol === "http:" && (location.hostname === "127.0.0.1" || location.hostname === "localhost");
+    const fields = "f12,f13,f14,f2,f3,f4,f15,f16,f17,f18";
+    let holdings = loadHoldings();
+    let watchlist = loadWatchlist();
+    seedFirstRunWatchlist();
+    let latestQuotes = new Map();
+    let timer = null;
+    let editingSecid = "";
+    let menuSecid = "";
+    let menuType = "holding";
+
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      rows: $("rows"),
+      watchRows: $("watchRows"),
+      empty: $("empty"),
+      watchEmpty: $("watchEmpty"),
+      form: $("addForm"),
+      watchForm: $("watchForm"),
+      symbol: $("symbol"),
+      watchSymbol: $("watchSymbol"),
+      shares: $("shares"),
+      cost: $("cost"),
+      submitHolding: $("submitHolding"),
+      cancelEdit: $("cancelEdit"),
+      refresh: $("refresh"),
+      interval: $("interval"),
+      popout: $("popout"),
+      dot: $("dot"),
+      status: $("statusText"),
+      clock: $("clock"),
+      totalValue: $("totalValue"),
+      totalProfit: $("totalProfit"),
+      contextMenu: $("contextMenu")
+    };
+
+    els.form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const rawSymbol = els.symbol.value.trim();
+      const shares = parseNumber(els.shares.value);
+      const cost = parseNumber(els.cost.value);
+      const secid = toSecid(rawSymbol);
+
+      if (!secid || shares <= 0) {
+        setStatus("Enter a valid symbol and share count", "error");
+        return;
+      }
+
+      if (editingSecid) {
+        const editing = holdings.find((item) => item.secid === editingSecid);
+        const duplicate = holdings.find((item) => item.secid === secid && item.secid !== editingSecid);
+        if (editing) {
+          if (duplicate) {
+            duplicate.symbol = rawSymbol.toUpperCase();
+            duplicate.shares = shares;
+            duplicate.cost = cost || 0;
+            holdings = holdings.filter((item) => item.secid !== editingSecid);
+          } else {
+            editing.symbol = rawSymbol.toUpperCase();
+            editing.secid = secid;
+            editing.shares = shares;
+            editing.cost = cost || 0;
+          }
+        }
+        stopEditing();
+      } else {
+        const existing = holdings.find((item) => item.secid === secid);
+        if (existing) {
+          existing.shares = shares;
+          existing.cost = cost || 0;
+        } else {
+          holdings.push({ symbol: rawSymbol.toUpperCase(), secid, shares, cost: cost || 0 });
+        }
+      }
+
+      saveHoldings();
+      els.form.reset();
+      render();
+      refreshQuotes();
+    });
+
+    els.refresh.addEventListener("click", refreshQuotes);
+    els.cancelEdit.addEventListener("click", stopEditing);
+    els.interval.addEventListener("change", startTimer);
+    els.watchForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const rawSymbol = els.watchSymbol.value.trim();
+      const secid = toSecid(rawSymbol);
+      if (!secid) {
+        setStatus("Enter a valid watch symbol", "error");
+        return;
+      }
+      const existing = watchlist.find((item) => item.secid === secid);
+      if (!existing) {
+        watchlist.push({ symbol: rawSymbol.toUpperCase(), secid });
+        saveWatchlist();
+      }
+      els.watchForm.reset();
+      render();
+      refreshQuotes();
+    });
+    els.popout.addEventListener("click", () => {
+      window.open(location.href.split("#")[0] + "#mini", "stockMiniWindow", "width=430,height=620,menubar=no,toolbar=no,location=no,status=no");
+    });
+
+    els.contextMenu.addEventListener("click", (event) => {
+      const action = event.target?.dataset?.menuAction;
+      if (!action || !menuSecid) return;
+      const secid = menuSecid;
+      const type = menuType;
+      hideMenu();
+      if (type === "holding" && action === "edit") editHolding(secid);
+      if (type === "holding" && action === "remove") removeHolding(secid);
+      if (type === "watch" && action === "remove") removeWatch(secid);
+    });
+
+    document.addEventListener("click", hideMenu);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hideMenu();
+    });
+
+    window.addEventListener("storage", () => {
+      holdings = loadHoldings();
+      watchlist = loadWatchlist();
+      render();
+      refreshQuotes();
+    });
+
+    function loadHoldings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        if (Array.isArray(saved)) return saved.filter((item) => item && item.secid);
+      } catch (_) {}
+      return [];
+    }
+
+    function saveHoldings() {
+      localStorage.setItem(storageKey, JSON.stringify(holdings));
+    }
+
+    function loadWatchlist() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(watchStorageKey) || "[]");
+        if (Array.isArray(saved)) return saved.filter((item) => item && item.secid);
+      } catch (_) {}
+      return [];
+    }
+
+    function saveWatchlist() {
+      localStorage.setItem(watchStorageKey, JSON.stringify(watchlist));
+    }
+
+    function seedFirstRunWatchlist() {
+      if (localStorage.getItem(seedStorageKey) || holdings.length || watchlist.length) return;
+
+      watchlist = [
+        { symbol: "600519", secid: "1.600519" },
+        { symbol: "HK00700", secid: "116.00700" },
+        { symbol: "AAPL", secid: "105.AAPL" }
+      ];
+      saveWatchlist();
+      localStorage.setItem(seedStorageKey, "1");
+    }
+
+    function parseNumber(value) {
+      const normalized = String(value || "").replace(/,/g, "").trim();
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function toSecid(input) {
+      const value = String(input || "").trim().toUpperCase().replace(/\s+/g, "");
+      if (!value) return "";
+      if (/^SH\d{6}$/.test(value)) return "1." + value.slice(2);
+      if (/^SZ\d{6}$/.test(value)) return "0." + value.slice(2);
+      if (/^HK\d{4,5}$/.test(value)) return "116." + value.slice(2).padStart(5, "0");
+      if (/^US[A-Z.]+$/.test(value)) return "105." + value.slice(2);
+      if (/^6\d{5}$/.test(value)) return "1." + value;
+      if (/^[023]\d{5}$/.test(value)) return "0." + value;
+      if (/^\d{4,5}$/.test(value)) return "116." + value.padStart(5, "0");
+      if (/^[A-Z][A-Z0-9.-]{0,9}$/.test(value)) return "105." + value;
+      return "";
+    }
+
+    async function refreshQuotes() {
+      const quoteItems = [...holdings, ...watchlist];
+      if (!quoteItems.length) {
+        latestQuotes.clear();
+        render();
+        setStatus("Waiting for symbols", "");
+        return;
+      }
+
+      const secids = [...new Set(quoteItems.map((item) => item.secid))].join(",");
+      setStatus("Updating", "");
+
+      try {
+        const quoteUrl = isLocalApp
+          ? "/api/quotes?secids=" + encodeURIComponent(secids)
+          : "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=" +
+            encodeURIComponent(fields) + "&secids=" + encodeURIComponent(secids);
+        const response = await fetch(quoteUrl, { cache: "no-store" });
+        if (!response.ok) throw new Error("Quote request failed");
+        const payload = await response.json();
+        const list = payload?.data?.diff || [];
+        latestQuotes = new Map(list.map((quote) => [String(quote.f13) + "." + quote.f12, quote]));
+        render();
+        setStatus("Updated", "live");
+      } catch (_) {
+        setStatus("Quote connection failed", "error");
+      }
+    }
+
+    function render() {
+      els.empty.hidden = holdings.length > 0;
+      els.watchEmpty.hidden = watchlist.length > 0;
+      els.rows.innerHTML = "";
+      els.watchRows.innerHTML = "";
+
+      let totalValue = 0;
+      let totalCost = 0;
+
+      for (const item of holdings) {
+        const quote = latestQuotes.get(item.secid);
+        const price = validQuoteNumber(quote?.f2);
+        const percent = validQuoteNumber(quote?.f3);
+        const change = validQuoteNumber(quote?.f4);
+        const name = quote?.f14 || item.symbol || item.secid;
+        const value = price * item.shares;
+        const costValue = item.cost * item.shares;
+        const profit = value - costValue;
+
+        if (price > 0) totalValue += value;
+        if (item.cost > 0) totalCost += costValue;
+
+        const tr = document.createElement("tr");
+        tr.dataset.secid = item.secid;
+        tr.innerHTML = `
+          <td>
+            <div class="name">
+              <strong>${escapeHtml(name)}</strong>
+              <span>${escapeHtml(item.symbol || item.secid)} - ${formatNumber(item.shares, 2)} sh</span>
+            </div>
+          </td>
+          <td>${price > 0 ? formatNumber(price, 2) : "--"}</td>
+          <td class="${trendClass(percent)}">${formatSigned(change, 2)}<br>${formatSigned(percent, 2)}%</td>
+          <td class="${trendClass(profit)}">${item.cost > 0 && price > 0 ? formatMoney(profit) : "--"}<br>${item.cost > 0 && price > 0 ? formatSigned((profit / costValue) * 100, 2) + "%" : ""}</td>
+        `;
+        tr.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          showMenu(item.secid, event.clientX, event.clientY, "holding");
+        });
+        els.rows.appendChild(tr);
+      }
+
+      for (const item of watchlist) {
+        const quote = latestQuotes.get(item.secid);
+        const price = validQuoteNumber(quote?.f2);
+        const percent = validQuoteNumber(quote?.f3);
+        const name = quote?.f14 || item.symbol || item.secid;
+        const tr = document.createElement("tr");
+        tr.dataset.secid = item.secid;
+        tr.innerHTML = `
+          <td>
+            <div class="name">
+              <strong>${escapeHtml(name)}</strong>
+              <span>${escapeHtml(item.symbol || item.secid)}</span>
+            </div>
+          </td>
+          <td>${price > 0 ? formatNumber(price, 2) : "--"}</td>
+          <td class="${trendClass(percent)}">${formatSigned(percent, 2)}%</td>
+        `;
+        tr.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          showMenu(item.secid, event.clientX, event.clientY, "watch");
+        });
+        els.watchRows.appendChild(tr);
+      }
+
+      const totalProfit = totalCost > 0 && totalValue > 0 ? totalValue - totalCost : 0;
+      els.totalValue.textContent = totalValue > 0 ? formatMoney(totalValue) : "--";
+      els.totalProfit.textContent = totalCost > 0 ? formatMoney(totalProfit) : "--";
+      els.totalProfit.className = trendClass(totalProfit);
+      els.clock.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    }
+
+    function editHolding(secid) {
+      const item = holdings.find((holding) => holding.secid === secid);
+      if (!item) return;
+      editingSecid = item.secid;
+      els.symbol.value = item.symbol || item.secid;
+      els.shares.value = item.shares || "";
+      els.cost.value = item.cost || "";
+      els.submitHolding.textContent = "Save";
+      els.cancelEdit.hidden = false;
+      els.symbol.focus();
+      setStatus("Editing holding", "");
+    }
+
+    function removeHolding(secid) {
+      holdings = holdings.filter((item) => item.secid !== secid);
+      if (editingSecid === secid) stopEditing();
+      saveHoldings();
+      render();
+      refreshQuotes();
+    }
+
+    function removeWatch(secid) {
+      watchlist = watchlist.filter((item) => item.secid !== secid);
+      saveWatchlist();
+      render();
+      refreshQuotes();
+    }
+
+    function showMenu(secid, x, y, type) {
+      menuSecid = secid;
+      menuType = type;
+      const editButton = els.contextMenu.querySelector('[data-menu-action="edit"]');
+      if (editButton) editButton.hidden = type !== "holding";
+      els.contextMenu.hidden = false;
+      const width = els.contextMenu.offsetWidth;
+      const height = els.contextMenu.offsetHeight;
+      els.contextMenu.style.left = Math.min(x, window.innerWidth - width - 8) + "px";
+      els.contextMenu.style.top = Math.min(y, window.innerHeight - height - 8) + "px";
+    }
+
+    function hideMenu() {
+      menuSecid = "";
+      menuType = "holding";
+      els.contextMenu.hidden = true;
+    }
+
+    function stopEditing() {
+      editingSecid = "";
+      els.form.reset();
+      els.submitHolding.textContent = "Add";
+      els.cancelEdit.hidden = true;
+    }
+
+    function validQuoteNumber(value) {
+      const number = Number(value);
+      return Number.isFinite(number) && number > -100000 ? number : 0;
+    }
+
+    function formatNumber(value, digits) {
+      return Number(value || 0).toLocaleString("zh-CN", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: digits
+      });
+    }
+
+    function formatMoney(value) {
+      const abs = Math.abs(value);
+      const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+      if (abs >= 1000000000) return sign + (abs / 1000000000).toFixed(2) + "B";
+      if (abs >= 1000000) return sign + (abs / 1000000).toFixed(2) + "M";
+      if (abs >= 1000) return sign + (abs / 1000).toFixed(2) + "K";
+      return sign + abs.toFixed(2);
+    }
+
+    function formatSigned(value, digits) {
+      if (!Number.isFinite(value) || value === 0) return "0.00";
+      return (value > 0 ? "+" : "") + value.toFixed(digits);
+    }
+
+    function trendClass(value) {
+      if (value > 0) return "up";
+      if (value < 0) return "down";
+      return "flat";
+    }
+
+    function setStatus(text, type) {
+      els.status.textContent = text;
+      els.dot.className = "dot" + (type ? " " + type : "");
+    }
+
+    function startTimer() {
+      if (timer) window.clearInterval(timer);
+      timer = window.setInterval(refreshQuotes, Number(els.interval.value));
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    render();
+    refreshQuotes();
+    startTimer();
+  </script>
+</body>
+</html>
