@@ -296,6 +296,29 @@
       background: var(--soft);
     }
 
+    body.mini-mode #popout,
+    body.mini-mode #addForm,
+    body.mini-mode .section-title,
+    body.mini-mode #watchForm,
+    body.mini-mode .watch-table,
+    body.mini-mode #watchEmpty,
+    body.mini-mode .foot {
+      display: none !important;
+    }
+
+    body.mini-mode .app {
+      min-height: 100vh;
+      border: 0;
+    }
+
+    body.mini-mode header {
+      padding: 6px 8px 5px;
+    }
+
+    body.mini-mode .summary {
+      padding: 6px 8px;
+    }
+
     @media (max-width: 420px) {
       body { min-width: 320px; }
       .app {
@@ -469,13 +492,20 @@
     const storageKey = "mini-stock-holdings-v1";
     const watchStorageKey = "mini-stock-watchlist-v1";
     const seedStorageKey = "mini-stock-watch-seeded-v1";
+    const miniModeRequested = location.hash === "#mini";
     const isLocalApp = location.protocol === "http:" && (location.hostname === "127.0.0.1" || location.hostname === "localhost");
     const fields = "f12,f13,f14,f2,f3,f4,f15,f16,f17,f18";
     let holdings = loadHoldings();
     let watchlist = loadWatchlist();
+    if (miniModeRequested && holdings.length) {
+      document.body.classList.add("mini-mode");
+    }
     seedFirstRunWatchlist();
     let latestQuotes = new Map();
     let timer = null;
+    let timerVersion = 0;
+    let refreshInFlight = false;
+    let consecutiveQuoteFailures = 0;
     let editingSecid = "";
     let menuSecid = "";
     let menuType = "holding";
@@ -655,6 +685,8 @@
     }
 
     async function refreshQuotes() {
+      if (refreshInFlight) return;
+
       const quoteItems = [...holdings, ...watchlist];
       if (!quoteItems.length) {
         latestQuotes.clear();
@@ -664,23 +696,63 @@
       }
 
       const secids = [...new Set(quoteItems.map((item) => item.secid))].join(",");
-      setStatus("Updating", "");
+      const hasCachedQuotes = latestQuotes.size > 0;
+      if (!hasCachedQuotes) setStatus("Updating", "");
+      refreshInFlight = true;
 
       try {
         const quoteUrl = isLocalApp
           ? "/api/quotes?secids=" + encodeURIComponent(secids)
           : "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=" +
             encodeURIComponent(fields) + "&secids=" + encodeURIComponent(secids);
-        const response = await fetch(quoteUrl, { cache: "no-store" });
-        if (!response.ok) throw new Error("Quote request failed");
-        const payload = await response.json();
-        const list = payload?.data?.diff || [];
+        const payload = await requestQuotePayload(quoteUrl);
+        const list = payload.data.diff;
         latestQuotes = new Map(list.map((quote) => [String(quote.f13) + "." + quote.f12, quote]));
+        consecutiveQuoteFailures = 0;
         render();
         setStatus("Updated", "live");
       } catch (_) {
-        setStatus("Quote connection failed", "error");
+        consecutiveQuoteFailures += 1;
+        if (!hasCachedQuotes) {
+          setStatus(consecutiveQuoteFailures >= 3 ? "Quote connection failed" : "Retrying", "error");
+        } else if (consecutiveQuoteFailures >= 3) {
+          setStatus("Using cached quotes", "error");
+        }
+      } finally {
+        refreshInFlight = false;
       }
+    }
+
+    async function requestQuotePayload(url) {
+      let lastError = null;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 4000);
+
+        try {
+          const separator = url.includes("?") ? "&" : "?";
+          const response = await fetch(url + separator + "_=" + Date.now(), {
+            cache: "no-store",
+            signal: controller.signal
+          });
+          if (!response.ok) throw new Error("Quote request failed");
+          const payload = await response.json();
+          if (!Array.isArray(payload?.data?.diff) || !payload.data.diff.length) {
+            throw new Error("Quote response was empty");
+          }
+          return payload;
+        } catch (error) {
+          lastError = error;
+          if (attempt === 0) {
+            await new Promise((resolve) => window.setTimeout(resolve, 600));
+          }
+        } finally {
+          window.clearTimeout(timeout);
+        }
+      }
+
+      throw lastError || new Error("Quote request failed");
     }
 
     function render() {
@@ -861,8 +933,18 @@
     }
 
     function startTimer() {
-      if (timer) window.clearInterval(timer);
-      timer = window.setInterval(refreshQuotes, Number(els.interval.value));
+      if (timer) window.clearTimeout(timer);
+      const version = ++timerVersion;
+      const delay = Number(els.interval.value);
+
+      const tick = async () => {
+        await refreshQuotes();
+        if (version === timerVersion) {
+          timer = window.setTimeout(tick, delay);
+        }
+      };
+
+      timer = window.setTimeout(tick, delay);
     }
 
     function escapeHtml(value) {
