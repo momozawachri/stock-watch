@@ -303,7 +303,6 @@
     }
 
     body.mini-mode #popout,
-    body.mini-mode #addForm,
     body.mini-mode .foot {
       display: none !important;
     }
@@ -325,6 +324,20 @@
       padding: 7px 8px 4px;
       background: var(--soft);
       font-size: 11px;
+    }
+
+    body.mini-mode #addForm {
+      grid-template-columns: minmax(0, 1fr) 64px 64px auto;
+      gap: 5px;
+      padding: 5px 8px;
+    }
+
+    body.mini-mode #addForm input:nth-child(3) {
+      grid-column: auto;
+    }
+
+    body.mini-mode #cancelEdit:not([hidden]) {
+      grid-column: 1 / -1;
     }
 
     body.mini-mode #watchForm {
