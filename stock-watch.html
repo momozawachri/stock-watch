@@ -303,7 +303,6 @@
 
     body.mini-mode #popout,
     body.mini-mode #addForm,
-    body.mini-mode #watchForm,
     body.mini-mode .foot {
       display: none !important;
     }
@@ -325,6 +324,12 @@
       padding: 7px 8px 4px;
       background: var(--soft);
       font-size: 11px;
+    }
+
+    body.mini-mode #watchForm {
+      grid-template-columns: 1fr auto;
+      gap: 5px;
+      padding: 5px 8px;
     }
 
     body.mini-mode .watch-table th,
