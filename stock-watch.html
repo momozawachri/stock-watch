@@ -303,10 +303,7 @@
 
     body.mini-mode #popout,
     body.mini-mode #addForm,
-    body.mini-mode .section-title,
     body.mini-mode #watchForm,
-    body.mini-mode .watch-table,
-    body.mini-mode #watchEmpty,
     body.mini-mode .foot {
       display: none !important;
     }
@@ -322,6 +319,23 @@
 
     body.mini-mode .summary {
       padding: 6px 8px;
+    }
+
+    body.mini-mode .section-title {
+      padding: 7px 8px 4px;
+      background: var(--soft);
+      font-size: 11px;
+    }
+
+    body.mini-mode .watch-table th,
+    body.mini-mode .watch-table td {
+      padding-top: 5px;
+      padding-bottom: 5px;
+    }
+
+    body.mini-mode #watchEmpty {
+      padding: 12px 8px;
+      font-size: 11px;
     }
 
     @media (max-width: 420px) {
@@ -607,7 +621,7 @@
       refreshQuotes();
     });
     els.popout.addEventListener("click", () => {
-      window.open(location.href.split("#")[0] + "#mini", "stockMiniWindow", "width=430,height=620,menubar=no,toolbar=no,location=no,status=no");
+      window.open(location.href.split("#")[0] + "#mini", "stockMiniWindow", "width=390,height=460,menubar=no,toolbar=no,location=no,status=no");
     });
 
     els.contextMenu.addEventListener("click", (event) => {
